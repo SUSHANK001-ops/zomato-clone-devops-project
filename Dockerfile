@@ -16,6 +16,9 @@ COPY . .
 # Bypass the Create React App eslint version conflict
 ENV SKIP_PREFLIGHT_CHECK=true
 
+# Disable the built-in ESLint to prevent the package path export crash
+ENV DISABLE_ESLINT_PLUGIN=true
+
 # Fix OpenSSL 3.0 hash conflict with legacy React Webpack
 ENV NODE_OPTIONS=--openssl-legacy-provider
 
