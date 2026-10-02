@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Change to your Docker Hub username/repository
-        DOCKER_IMAGE_NAME     = 'your-dockerhub-username/zomato-clone'
+        DOCKER_IMAGE_NAME     = 'sushanka001/zomato-clone'
         // Jenkins Credentials ID configured in Jenkins -> Manage Jenkins -> Credentials
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
         CONTAINER_NAME        = 'zomato-clone'
