@@ -2,55 +2,77 @@ pipeline {
     agent any
 
     environment {
-        ANYPOINT_CREDENTIALS = credentials('anypoint.credentials')
+        // Change to your Docker Hub username/repository
+        DOCKER_IMAGE_NAME     = 'your-dockerhub-username/zomato-clone'
+        // Jenkins Credentials ID configured in Jenkins -> Manage Jenkins -> Credentials
+        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        CONTAINER_NAME        = 'zomato-clone'
+        HOST_PORT             = '3000'
+        CONTAINER_PORT        = '80'
     }
 
     stages {
-        stage('Unit Test') {
+        stage('Checkout Code') {
             steps {
-                echo "Running Unit Tests..."
-                sh 'mvn clean test'
+                echo 'Checking out source code...'
+                checkout scm
             }
         }
 
-        stage('Deploy Standalone') {
+        stage('Install Dependencies') {
             steps {
-                echo "Deploying in Standalone mode..."
-                sh 'mvn deploy -P standalone'
+                echo 'Installing Node.js dependencies...'
+                sh 'npm install --legacy-peer-deps'
             }
         }
 
-        stage('Deploy to AnyPoint') {
+        stage('Run Tests') {
             steps {
-                echo "Deploying to Anypoint Platform..."
-                sh '''
-                mvn deploy -P arm \
-                -Darm.target.name=local-4.0.0-ee \
-                -Danypoint.username=${ANYPOINT_CREDENTIALS_USR} \
-                -Danypoint.password=${ANYPOINT_CREDENTIALS_PSW}
-                '''
+                echo 'Running unit tests...'
+                sh 'npm test'
             }
         }
 
-        stage('Deploy to CloudHub') {
+        stage('Build Docker Image') {
             steps {
-                echo "Deploying to CloudHub..."
-                sh '''
-                mvn deploy -P cloudhub \
-                -Dmule.version=4.0.0 \
-                -Danypoint.username=${ANYPOINT_CREDENTIALS_USR} \
-                -Danypoint.password=${ANYPOINT_CREDENTIALS_PSW}
-                '''
+                echo "Building Docker image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} and latest..."
+                sh "docker build -t ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} -t ${DOCKER_IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage('Push Image to Docker Hub') {
+            steps {
+                echo 'Authenticating and pushing image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    sh "docker push ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}"
+                    sh "docker push ${DOCKER_IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Deploy Container on EC2') {
+            steps {
+                echo "Deploying container [${CONTAINER_NAME}] on port ${HOST_PORT}..."
+                sh """
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+                    docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} --restart unless-stopped ${DOCKER_IMAGE_NAME}:latest
+                """
             }
         }
     }
 
     post {
+        always {
+            echo 'Pruning dangling images...'
+            sh 'docker image prune -f || true'
+        }
         success {
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Deployment successful! Application is running on http://<YOUR-EC2-PUBLIC-IP>:${HOST_PORT}"
         }
         failure {
-            echo "❌ Deployment failed! Check logs for errors."
+            echo "❌ Pipeline failed! Please inspect the Jenkins console output for errors."
         }
     }
 }

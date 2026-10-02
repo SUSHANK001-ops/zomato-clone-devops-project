@@ -1,32 +1,35 @@
-# Use Node 16 which is natively compatible with older react-scripts
-FROM node:16-alpine AS builder
+# ==========================================
+# Stage 1: Build Stage using Node.js 20 LTS
+# ==========================================
+FROM node:20-alpine AS builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json first
+# Copy package specifications
 COPY package*.json ./
 
-# Use legacy-peer-deps to prevent strict npm version conflicts
+# Install dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy the rest of the application source code
+# Copy application source code
 COPY . .
 
-# Build the React app (Node 16 won't throw OpenSSL or ESLint export errors)
+# Build production bundle
 RUN npm run build
 
-# ---- Production Stage ----
-FROM node:16-alpine
+# ==========================================
+# Stage 2: Production Stage using Nginx Alpine
+# ==========================================
+FROM nginx:alpine
 
-# Set the working directory
-WORKDIR /app
+# Copy custom Nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy the built React app from the builder stage
-COPY --from=builder /app .
+# Copy production build artifacts from builder stage
+COPY --from=builder /app/build /usr/share/nginx/html
 
-# Expose the port the app runs on
-EXPOSE 3000
+# Expose standard HTTP port
+EXPOSE 80
 
-# Start the application
-CMD ["npm", "start"]
+# Start Nginx server
+CMD ["nginx", "-g", "daemon off;"]
