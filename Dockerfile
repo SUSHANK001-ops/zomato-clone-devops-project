@@ -1,32 +1,23 @@
-# Use an official Node.js image as the base (LTS version for stability)
-FROM node:18-alpine AS builder
+# Use Node 16 which is natively compatible with older react-scripts
+FROM node:16-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json first (Leverage Docker cache)
+# Copy package.json and package-lock.json first
 COPY package*.json ./
 
-# Install ALL dependencies in a clean environment (React needs build tools)
-RUN npm ci
+# Use legacy-peer-deps to prevent strict npm version conflicts
+RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application source code
 COPY . .
 
-# Bypass the Create React App eslint version conflict
-ENV SKIP_PREFLIGHT_CHECK=true
-
-# Disable the built-in ESLint to prevent the package path export crash
-ENV DISABLE_ESLINT_PLUGIN=true
-
-# Fix OpenSSL 3.0 hash conflict with legacy React Webpack
-ENV NODE_OPTIONS=--openssl-legacy-provider
-
-# Build the React app
+# Build the React app (Node 16 won't throw OpenSSL or ESLint export errors)
 RUN npm run build
 
 # ---- Production Stage ----
-FROM node:18-alpine
+FROM node:16-alpine
 
 # Set the working directory
 WORKDIR /app
