@@ -16,6 +16,9 @@ COPY . .
 # Bypass the Create React App eslint version conflict
 ENV SKIP_PREFLIGHT_CHECK=true
 
+# Fix OpenSSL 3.0 hash conflict with legacy React Webpack
+ENV NODE_OPTIONS=--openssl-legacy-provider
+
 # Build the React app
 RUN npm run build
 
