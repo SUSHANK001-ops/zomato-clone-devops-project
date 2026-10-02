@@ -7,11 +7,14 @@ WORKDIR /app
 # Copy package.json and package-lock.json first (Leverage Docker cache)
 COPY package*.json ./
 
-# Install dependencies in a clean environment
-RUN npm ci --only=production
+# Install ALL dependencies in a clean environment (React needs build tools)
+RUN npm ci
 
 # Copy the rest of the application source code
 COPY . .
+
+# Bypass the Create React App eslint version conflict
+ENV SKIP_PREFLIGHT_CHECK=true
 
 # Build the React app
 RUN npm run build
