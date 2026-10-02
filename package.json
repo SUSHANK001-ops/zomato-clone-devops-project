@@ -17,10 +17,10 @@
     "web-vitals": "^3.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --watchAll",
-    "eject": "react-scripts eject",
+    "start": "node node_modules/react-scripts/bin/react-scripts.js start",
+    "build": "node node_modules/react-scripts/bin/react-scripts.js build",
+    "test": "node node_modules/react-scripts/bin/react-scripts.js test --watchAll",
+    "eject": "node node_modules/react-scripts/bin/react-scripts.js eject",
     "lint": "eslint . --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\""
   },
@@ -44,6 +44,11 @@
   },
   "devDependencies": {
     "eslint": "5.16.0",
+    "eslint-plugin-flowtype": "2.50.1",
+    "eslint-plugin-import": "2.16.0",
+    "eslint-plugin-jsx-a11y": "6.2.1",
+    "eslint-plugin-react": "7.12.4",
+    "eslint-plugin-react-hooks": "1.5.0",
     "prettier": "^3.1.0"
   }
 }
