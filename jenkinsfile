@@ -1,30 +1,23 @@
 pipeline {
     agent any
-
     tools {
         jdk 'jdk17'
         nodejs 'node20'
     }
-
     environment {
-        SCANNER_HOME          = tool 'sonar-scanner'
-        DOCKER_IMAGE_NAME     = 'sushanka001/zomato-clone'
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        SCANNER_HOME = tool 'sonar-scanner'
     }
-
     stages {
         stage('clean workspace') {
             steps {
                 cleanWs()
             }
         }
-
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', url: 'https://github.com/SUSHANK001-ops/zomato-clone-devops-project.git'
             }
         }
-
         stage("Sonarqube Analysis ") {
             steps {
                 withSonarQubeEnv('sonar-server') {
@@ -33,55 +26,47 @@ pipeline {
                 }
             }
         }
-
         stage("quality gate") {
             steps {
                 script {
-                    try {
-                        waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
-                    } catch (Throwable e) {
-                        echo "⚠️ SonarQube Quality Gate failed: ${e.message}"
-                        echo "ℹ️ Continuing pipeline to build and deploy the container live."
-                    }
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
                 }
-            }
+            } 
         }
-
         stage('Install Dependencies') {
             steps {
                 sh "npm install --legacy-peer-deps"
             }
         }
-
-        stage('Build Docker Image') {
+        stage('TRIVY FS SCAN') {
             steps {
-                sh "docker build -t ${DOCKER_IMAGE_NAME}:latest ."
+                sh "trivy fs . > trivyfs.txt"
             }
         }
-
-        stage('Push Image to Docker Hub') {
+        stage("Docker Build & Push") {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                    sh "docker push ${DOCKER_IMAGE_NAME}:latest"
+                script {
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {   
+                        sh "docker build -t zomato ."
+                        sh "docker tag zomato sushanka001/zomato:latest"
+                        sh "docker push sushanka001/zomato:latest"
+                    }
                 }
             }
         }
-
-        stage('Deploy Container') {
+        stage("TRIVY") {
             steps {
-                sh '''
-                    docker stop zomato-clone || true
-                    docker rm zomato-clone || true
-                    docker run -d --name zomato-clone -p 3000:80 sushanka001/zomato-clone:latest
-                '''
+                sh "trivy image sushanka001/zomato:latest > trivy.txt" 
             }
         }
-    }
-
-    post {
-        always {
-            sh 'docker image prune -f || true'
+        stage("Deploy Container") {
+            steps {
+                sh '''
+                    docker stop zomato || true
+                    docker rm zomato || true
+                    docker run -d --name zomato -p 3000:80 sushanka001/zomato:latest
+                '''
+            }
         }
     }
 }
